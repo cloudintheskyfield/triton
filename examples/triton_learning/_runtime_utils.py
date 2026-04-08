@@ -1,25 +1,29 @@
 """
 Runtime helpers for the learning scripts.
 
-These examples need a Triton-supported GPU runtime. When no CUDA/HIP driver is
-active, we raise a short explanation instead of exposing an internal traceback.
+When Triton cannot find a supported GPU backend, the learning scripts can fall
+back to CPU/PyTorch implementations so the user can still study the math and
+API structure on machines such as macOS laptops.
 """
 
+import torch
 
-def get_triton_device():
+
+def get_triton_runtime():
     import triton
 
     try:
-        return triton.runtime.driver.active.get_active_torch_device()
+        device = triton.runtime.driver.active.get_active_torch_device()
+        return device, True, None
     except RuntimeError as exc:
-        raise RuntimeError(
-            "No active Triton GPU driver was found.\n"
-            "These Triton kernel examples require a CUDA or HIP environment.\n"
-            "Common reasons:\n"
-            "1. The current machine has no supported NVIDIA/AMD GPU\n"
-            "2. CUDA or ROCm is not installed or not visible to this environment\n"
-            "3. You are on macOS without a supported Triton GPU backend\n\n"
-            "You can still run the pure PyTorch examples:\n"
-            "- examples/triton_learning/00_torch_attention_baseline.py\n"
-            "- examples/triton_learning/03_attention_math_walkthrough.py"
-        ) from exc
+        return torch.device("cpu"), False, exc
+
+
+def format_runtime_message(using_triton: bool, reason=None) -> str:
+    if using_triton:
+        return "Using Triton GPU backend."
+    return (
+        "No active Triton GPU driver was found, so this script is using the "
+        "CPU/PyTorch fallback path.\n"
+        f"Original Triton runtime error: {reason}"
+    )

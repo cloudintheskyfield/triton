@@ -17,11 +17,10 @@ import torch
 
 import triton
 import triton.language as tl
-from _runtime_utils import get_triton_device
+from _runtime_utils import format_runtime_message, get_triton_runtime
 
 
-# 获取当前设备
-DEVICE = get_triton_device()
+DEVICE, HAS_TRITON_DEVICE, TRITON_ERROR = get_triton_runtime()
 
 
 # `kernel` 可以先理解成：一段专门给 GPU 并行执行的小程序。
@@ -56,6 +55,10 @@ def add_kernel(x_ptr, y_ptr, out_ptr, n_elements, BLOCK_SIZE: tl.constexpr):
 
 
 def add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    if not HAS_TRITON_DEVICE:
+        # 没有 Triton GPU backend 时，用 PyTorch 保持同样的功能结果。
+        return x + y
+
     out = torch.empty_like(x)
     n_elements = out.numel()
     # grid 决定总共启动多少个 program。
@@ -79,13 +82,14 @@ def main():
     x = torch.rand(1024, device=DEVICE)
     y = torch.rand(1024, device=DEVICE)
 
-    # Triton 结果和 PyTorch 结果应当一致。
-    triton_out = add(x, y)
+    # 有 Triton GPU 时这里会走 Triton kernel；否则会自动回退到 PyTorch。
+    result = add(x, y)
     torch_out = x + y
 
+    print(format_runtime_message(HAS_TRITON_DEVICE, TRITON_ERROR))
     print("device:", DEVICE)
-    print("max abs diff:", torch.max(torch.abs(triton_out - torch_out)).item())
-    print("sample result:", triton_out[:8])
+    print("max abs diff:", torch.max(torch.abs(result - torch_out)).item())
+    print("sample result:", result[:8])
 
 
 if __name__ == "__main__":

@@ -48,5 +48,6 @@ python examples/triton_learning/03_attention_math_walkthrough.py
 
 如果机器没有可用 GPU：
 
-- `00_torch_attention_baseline.py` 和 `03_attention_math_walkthrough.py` 仍然可以运行
-- Triton kernel 脚本通常需要 CUDA 或 HIP 设备
+- `00_torch_attention_baseline.py` 和 `03_attention_math_walkthrough.py` 直接运行
+- `01_triton_vector_add.py` 和 `02_triton_row_softmax.py` 会自动回退到 CPU/PyTorch 实现
+- 有 CUDA 或 HIP 设备时，这两个脚本会自动切回 Triton kernel 路径

@@ -17,10 +17,10 @@ import torch
 
 import triton
 import triton.language as tl
-from _runtime_utils import get_triton_device
+from _runtime_utils import format_runtime_message, get_triton_runtime
 
 
-DEVICE = get_triton_device()
+DEVICE, HAS_TRITON_DEVICE, TRITON_ERROR = get_triton_runtime()
 
 
 @triton.jit
@@ -54,6 +54,11 @@ def row_softmax_kernel(
 
 def row_softmax(x: torch.Tensor) -> torch.Tensor:
     assert x.ndim == 2, "expected a 2D tensor"
+
+    if not HAS_TRITON_DEVICE:
+        # 没有 Triton GPU backend 时，直接退回到 PyTorch softmax。
+        return torch.softmax(x, dim=1)
+
     n_rows, n_cols = x.shape
     # Triton 常常偏好 2 的幂大小，这里把列数向上取到最近的 2 的幂。
     block_size = triton.next_power_of_2(n_cols)
@@ -75,14 +80,15 @@ def main():
     torch.manual_seed(0)
 
     x = torch.randn(4, 8, device=DEVICE)
-    triton_out = row_softmax(x)
+    result = row_softmax(x)
     torch_out = torch.softmax(x, dim=1)
 
+    print(format_runtime_message(HAS_TRITON_DEVICE, TRITON_ERROR))
     print("input shape:", tuple(x.shape))
     # 如果实现正确，这个误差应该非常小。
-    print("max abs diff:", torch.max(torch.abs(triton_out - torch_out)).item())
-    print("triton output:")
-    print(triton_out)
+    print("max abs diff:", torch.max(torch.abs(result - torch_out)).item())
+    print("result:")
+    print(result)
 
 
 if __name__ == "__main__":
