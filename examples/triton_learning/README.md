@@ -5,9 +5,10 @@
 推荐顺序：
 
 1. `00_torch_attention_baseline.py`
-2. `01_triton_vector_add.py`
-3. `02_triton_row_softmax.py`
-4. `03_attention_math_walkthrough.py`
+2. `01a_pointer_offset_mask_walkthrough.py`
+3. `01_triton_vector_add.py`
+4. `02_triton_row_softmax.py`
+5. `03_attention_math_walkthrough.py`
 
 ## 脚本说明
 
@@ -22,6 +23,14 @@
 - 一个 program 处理一段数据
 - 如何用 `tl.arange` 生成 offset
 - 如何用 `mask` 保护越界访存
+
+### `01a_pointer_offset_mask_walkthrough.py`
+
+这是正式读 Triton kernel 前的过渡脚本：
+
+- 用纯 CPU/PyTorch 模拟 `pointer + offset`
+- 用最直观的方式解释 `mask`
+- 先理解 `load/store` 在“读一批位置、写一批位置”
 
 ### `02_triton_row_softmax.py`
 
@@ -41,6 +50,7 @@
 
 ```bash
 python examples/triton_learning/00_torch_attention_baseline.py
+python examples/triton_learning/01a_pointer_offset_mask_walkthrough.py
 python examples/triton_learning/01_triton_vector_add.py
 python examples/triton_learning/02_triton_row_softmax.py
 python examples/triton_learning/03_attention_math_walkthrough.py
@@ -49,5 +59,6 @@ python examples/triton_learning/03_attention_math_walkthrough.py
 如果机器没有可用 GPU：
 
 - `00_torch_attention_baseline.py` 和 `03_attention_math_walkthrough.py` 直接运行
+- `01a_pointer_offset_mask_walkthrough.py` 直接运行
 - `01_triton_vector_add.py` 和 `02_triton_row_softmax.py` 会自动回退到 CPU/PyTorch 实现
 - 有 CUDA 或 HIP 设备时，这两个脚本会自动切回 Triton kernel 路径

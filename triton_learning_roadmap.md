@@ -37,12 +37,49 @@
 
 推荐阅读顺序：
 
-1. `python/tutorials/01-vector-add.py`
-2. `python/tutorials/02-fused-softmax.py`
-3. `python/tutorials/03-matrix-multiplication.py`
-4. `python/tutorials/06-fused-attention.py`
+1. `examples/triton_learning/00_torch_attention_baseline.py`
+2. `examples/triton_learning/01a_pointer_offset_mask_walkthrough.py`
+3. `examples/triton_learning/01_triton_vector_add.py`
+4. `examples/triton_learning/02_triton_row_softmax.py`
+5. `examples/triton_learning/03_attention_math_walkthrough.py`
+6. `python/tutorials/01-vector-add.py`
+7. `python/tutorials/02-fused-softmax.py`
+8. `python/tutorials/03-matrix-multiplication.py`
+9. `python/tutorials/06-fused-attention.py`
 
 每一阶段应该重点看什么：
+
+### 0. `00_torch_attention_baseline.py`
+
+这是最前面的数学热身。
+
+你要看懂：
+
+- `scores = q @ k^T` 在算什么
+- 为什么要除 `sqrt(d)`
+- `softmax(scores)` 的维度是什么
+- `probs @ v` 为什么会得到输出
+
+完成标准：
+
+- 你能不用 Triton，只用数学解释 attention 前向
+
+### 0.5. `01a_pointer_offset_mask_walkthrough.py`
+
+这是从“数学/张量”过渡到“GPU 访存”的关键台阶。
+
+你要看懂：
+
+- pointer 只是“数组起点”的抽象
+- offset 是“相对起点偏移多少”
+- `pointer + offset` 为什么就代表某个元素位置
+- `mask` 为什么能保护越界访问
+- `load/store` 本质上是在“批量按地址读写”
+
+完成标准：
+
+- 你能解释 `x_ptr + offsets` 到底表示什么
+- 你能解释 `tl.load(..., mask=mask)` 为什么不是只读一个数
 
 ### 1. `01-vector-add.py`
 
@@ -165,12 +202,14 @@
 
 目标：
 
-- 看完 `01-vector-add.py`
-- 看完 `02-fused-softmax.py`
-- 跑通学习目录中的 `00`、`01`、`02` 示例
+- 跑通 `00_torch_attention_baseline.py`
+- 跑通 `01a_pointer_offset_mask_walkthrough.py`
+- 看懂 `01_triton_vector_add.py`
+- 看懂 `02_triton_row_softmax.py`
 
 输出：
 
+- 不再害怕 `x_ptr + offsets` / `mask=mask` 这种写法
 - 自己能画出 Triton program 与数据块之间的对应关系
 - 自己能解释 softmax 的数值稳定写法
 
@@ -219,11 +258,12 @@
 结合你目前的笔记状态，我建议你马上按这个顺序开始：
 
 1. 先运行 `examples/triton_learning/00_torch_attention_baseline.py`
-2. 再运行 `examples/triton_learning/01_triton_vector_add.py`
-3. 然后运行 `examples/triton_learning/02_triton_row_softmax.py`
-4. 最后阅读 `examples/triton_learning/03_attention_math_walkthrough.py`
+2. 再运行 `examples/triton_learning/01a_pointer_offset_mask_walkthrough.py`
+3. 然后运行 `examples/triton_learning/01_triton_vector_add.py`
+4. 再运行 `examples/triton_learning/02_triton_row_softmax.py`
+5. 最后运行 `examples/triton_learning/03_attention_math_walkthrough.py`
 
-这样你会先把 attention 数学和 Triton 基础接起来，再去读官方 `06-fused-attention.py`，会轻松很多。
+这样你会先把 attention 数学、指针/偏移/mask 直觉、Triton 基础接起来，再去读官方 `06-fused-attention.py`，会轻松很多。
 
 ## 下一步里程碑
 
