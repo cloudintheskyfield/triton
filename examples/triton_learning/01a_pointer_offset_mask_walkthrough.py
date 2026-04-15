@@ -18,15 +18,31 @@
 
 所以这个脚本会先用纯 Python / PyTorch 把这几行的含义讲明白，
 再去看真正的 Triton kernel 就会轻松很多。
+
+Triton kernel 本质在操作 GPU 上内容，流程为
+    1. 从输入张量在的显存将数据读出来
+        读到当前 program 能操作的位置； 显存为“大仓库”，tl.load是将这批要用的货从仓库拿回手边
+        即 GPU 中有不同层级的存储
+            （1）
+    2. 在 GPU 内部做计算
+    3. 将结果写回输出张量所在的显存
 """
 
 import torch
 
 
 def masked_load(x: torch.Tensor, offsets: torch.Tensor, mask: torch.Tensor, other: float = 0.0) -> torch.Tensor:
-    """A tiny CPU version of Triton's tl.load(..., mask=..., other=...)."""
+    """
+        A tiny CPU version of Triton's tl.load(..., mask=..., other=...).
+        模拟 tl.load(x + offset, mask=mask, other=0)
+            去 offsets 位置读取数据（要读几个位置）、mask（那些位置真的能读）
+            如果某个位置合法，就读出来；如果某个位置越界了，就不要读
+            越界的位置用 other 默认值补上
+
+        去读 x 张量中，下标等于 offsets 对应位置上的值
+    """
     out = torch.full_like(offsets, fill_value=other, dtype=x.dtype)
-    out[mask] = x[offsets[mask]]
+    out[mask] = x[offsets[mask]]  # 只保留mask为True的位置， offsets[mask]为 tensor([8, 9])；x[offsets[mask]] 代表在这些位置上取值
     return out
 
 
@@ -58,20 +74,24 @@ def main():
 
     # 这一步对应：
     #   mask = offsets < n_elements
-    # 如果最后一个 block 不完整，超出真实长度的位置就要屏蔽掉。
+    # 如果最后一个 block 不完整，超出真实长度的位置就要屏蔽掉。 将大于10的进行屏蔽
     mask = offsets < n_elements
 
-    # 这一步就是对 Triton 的：
+    # 这一步就是对 Triton 的：tl.load 从内存中读数据
     #   x = tl.load(x_ptr + offsets, mask=mask)
     # 做一个 CPU 版本的直观模拟。
     loaded_x = masked_load(x, offsets, mask, other=0.0)
     loaded_y = masked_load(y, offsets, mask, other=0.0)
 
-    # Triton kernel 里经常会在寄存器里先做运算，再统一写回。
+    # Triton kernel 里经常会在寄存器里先做运算（先将一批数据读到片上更快的位置），再统一写回。
     result = loaded_x + loaded_y
 
     # 输出张量先分配好，再把当前 block 的结果写回去。
     output = torch.full_like(x, fill_value=-1.0)
+    # 模拟triton 中的 tl.store: 将数据写回内存
+    #   offsets 告诉要写到那些位置
+    #   result 告诉要写入那些值
+    #   mask 那些位置允许写，那些位置不要写
     masked_store(output, offsets, result, mask)
 
     print("原始向量 x:")
